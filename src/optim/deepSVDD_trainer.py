@@ -72,7 +72,7 @@ class DeepSVDDTrainer(BaseTrainer):
             n_batches = 0
             epoch_start_time = time.time()
             for data in train_loader:
-                inputs, _, _ = data
+                inputs = data['image']
                 inputs = inputs.to(self.device)
 
                 # Zero the network parameter gradients
@@ -122,9 +122,12 @@ class DeepSVDDTrainer(BaseTrainer):
         start_time = time.time()
         idx_label_score = []
         net.eval()
+        self.test_scores = {}
         with torch.no_grad():
             for data in test_loader:
-                inputs, labels, idx = data
+                inputs = data['image']
+                lp_types = data['lp_type']
+                filepath_list = data['filepath']
                 inputs = inputs.to(self.device)
                 outputs = net(inputs)
                 dist = torch.sum((outputs - self.c) ** 2, dim=1)
@@ -132,26 +135,12 @@ class DeepSVDDTrainer(BaseTrainer):
                     scores = dist - self.R ** 2
                 else:
                     scores = dist
-
-                # Save triples of (idx, label, score) in a list
-                idx_label_score += list(zip(idx.cpu().data.numpy().tolist(),
-                                            labels.cpu().data.numpy().tolist(),
-                                            scores.cpu().data.numpy().tolist()))
-
-        self.test_time = time.time() - start_time
-        logger.info('Testing time: %.3f' % self.test_time)
-
-        self.test_scores = idx_label_score
-
-        # Compute AUC
-        _, labels, scores = zip(*idx_label_score)
-        labels = np.array(labels)
-        scores = np.array(scores)
-
-        self.test_auc = roc_auc_score(labels, scores)
-        logger.info('Test set AUC: {:.2f}%'.format(100. * self.test_auc))
+            
+            for fpath, score, lp_type in zip(filepath_list, scores, lp_types):
+                self.test_scores[fpath] = (score, lp_type)
 
         logger.info('Finished testing.')
+        return self.test_scores
 
     def init_center_c(self, train_loader: DataLoader, net: BaseNet, eps=0.1):
         """Initialize hypersphere center c as the mean from an initial forward pass on the data."""
@@ -162,12 +151,12 @@ class DeepSVDDTrainer(BaseTrainer):
         with torch.no_grad():
             for data in train_loader:
                 # get the inputs of the batch
-                inputs, _, _ = data
+                inputs = data['image']
                 inputs = inputs.to(self.device)
                 outputs = net(inputs)
                 n_samples += outputs.shape[0]
                 c += torch.sum(outputs, dim=0)
-
+        
         c /= n_samples
 
         # If c_i is too close to 0, set to +-eps. Reason: a zero unit can be trivially matched with zero weights.
