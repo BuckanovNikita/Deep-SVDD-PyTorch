@@ -67,7 +67,7 @@ class AETrainer(BaseTrainer):
             epoch_train_time = time.time() - epoch_start_time
             logger.info('  Epoch {}/{}\t Time: {:.3f}\t Loss: {:.8f}'
                         .format(epoch + 1, self.n_epochs, epoch_train_time, loss_epoch / n_batches))
-
+            # GLOBAL_LOGGER.report_scalar('ae_loss', 'ae_loss', (loss_epoch / n_batches).numpy(), iteration=epoch)
         pretrain_time = time.time() - start_time
         logger.info('Pretraining time: %.3f' % pretrain_time)
         logger.info('Finished pretraining.')
@@ -105,6 +105,7 @@ class AETrainer(BaseTrainer):
 
                 loss_epoch += loss.item()
                 n_batches += 1
+        # GLOBAL_LOGGER.report_scalar('ae_test_loss', 'ae_test_loss', (loss_epoch / n_batches).numpy(), iteration=0)
 
         logger.info('Test set Loss: {:.8f}'.format(loss_epoch / n_batches))
 

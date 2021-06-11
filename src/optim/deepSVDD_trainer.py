@@ -92,6 +92,7 @@ class DeepSVDDTrainer(BaseTrainer):
                 # Update hypersphere radius R on mini-batch distances
                 if (self.objective == 'soft-boundary') and (epoch >= self.warm_up_n_epochs):
                     self.R.data = torch.tensor(get_radius(dist, self.nu), device=self.device)
+                    # GLOBAL_LOGGER.report_scalar('R', 'R', self.R.data.numpy(), iteration=epoch)
 
                 loss_epoch += loss.item()
                 n_batches += 1
@@ -100,6 +101,7 @@ class DeepSVDDTrainer(BaseTrainer):
             epoch_train_time = time.time() - epoch_start_time
             logger.info('  Epoch {}/{}\t Time: {:.3f}\t Loss: {:.8f}'
                         .format(epoch + 1, self.n_epochs, epoch_train_time, loss_epoch / n_batches))
+            # GLOBAL_LOGGER.report_scalar('loss', 'loss', (loss_epoch / n_batches).numpy(), iteration=epoch)
 
         self.train_time = time.time() - start_time
         logger.info('Training time: %.3f' % self.train_time)
@@ -136,8 +138,8 @@ class DeepSVDDTrainer(BaseTrainer):
                 else:
                     scores = dist
             
-            for fpath, score, lp_type in zip(filepath_list, scores, lp_types):
-                self.test_scores[fpath] = (score, lp_type)
+                for fpath, score, lp_type in zip(filepath_list, scores, lp_types):
+                    self.test_scores[fpath] = (score, lp_type)
 
         logger.info('Finished testing.')
         return self.test_scores
